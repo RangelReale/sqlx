@@ -239,7 +239,7 @@ func (r *Row) Err() error {
 // DB is a wrapper around sql.DB which keeps track of the driverName upon Open,
 // used mostly to automatically bind named queries using the right bindvars.
 type DB struct {
-	db         *sql.DB
+	db         SQLDB
 	driverName string
 	unsafe     bool
 	Mapper     *reflectx.Mapper
@@ -247,7 +247,7 @@ type DB struct {
 
 // NewDb returns a new sqlx DB wrapper for a pre-existing *sql.DB.  The
 // driverName of the original database is required for named query support.
-func NewDb(db *sql.DB, driverName string) *DB {
+func NewDb(db SQLDB, driverName string) *DB {
 	return &DB{db: db, driverName: driverName, Mapper: mapper()}
 }
 
