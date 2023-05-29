@@ -5,7 +5,6 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
-
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
@@ -51,9 +50,9 @@ func mapper() *reflectx.Mapper {
 
 // isScannable takes the reflect.Type and the actual dest value and returns
 // whether or not it's Scannable.  Something is scannable if:
-//   * it is not a struct
-//   * it implements sql.Scanner
-//   * it has no exported fields
+//   - it is not a struct
+//   - it implements sql.Scanner
+//   - it has no exported fields
 func isScannable(t reflect.Type) bool {
 	if reflect.PtrTo(t).Implements(_scannerInterface) {
 		return true
@@ -240,7 +239,7 @@ func (r *Row) Err() error {
 // DB is a wrapper around sql.DB which keeps track of the driverName upon Open,
 // used mostly to automatically bind named queries using the right bindvars.
 type DB struct {
-	*sql.DB
+	db         *sql.DB
 	driverName string
 	unsafe     bool
 	Mapper     *reflectx.Mapper
@@ -249,7 +248,7 @@ type DB struct {
 // NewDb returns a new sqlx DB wrapper for a pre-existing *sql.DB.  The
 // driverName of the original database is required for named query support.
 func NewDb(db *sql.DB, driverName string) *DB {
-	return &DB{DB: db, driverName: driverName, Mapper: mapper()}
+	return &DB{db: db, driverName: driverName, Mapper: mapper()}
 }
 
 // DriverName returns the driverName passed to the Open function for this DB.
@@ -263,7 +262,7 @@ func Open(driverName, dataSourceName string) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &DB{DB: db, driverName: driverName, Mapper: mapper()}, err
+	return &DB{db: db, driverName: driverName, Mapper: mapper()}, err
 }
 
 // MustOpen is the same as sql.Open, but returns an *sqlx.DB instead and panics on error.
@@ -291,7 +290,7 @@ func (db *DB) Rebind(query string) string {
 // sqlx.Stmt and sqlx.Tx which are created from this DB will inherit its
 // safety behavior.
 func (db *DB) Unsafe() *DB {
-	return &DB{DB: db.DB, driverName: db.driverName, unsafe: true, Mapper: db.Mapper}
+	return &DB{db: db.db, driverName: db.driverName, unsafe: true, Mapper: db.Mapper}
 }
 
 // BindNamed binds a query using the DB driver's bindvar type.
@@ -336,7 +335,7 @@ func (db *DB) MustBegin() *Tx {
 
 // Beginx begins a transaction and returns an *sqlx.Tx instead of an *sql.Tx.
 func (db *DB) Beginx() (*Tx, error) {
-	tx, err := db.DB.Begin()
+	tx, err := db.db.Begin()
 	if err != nil {
 		return nil, err
 	}
@@ -346,7 +345,7 @@ func (db *DB) Beginx() (*Tx, error) {
 // Queryx queries the database and returns an *sqlx.Rows.
 // Any placeholder parameters are replaced with supplied args.
 func (db *DB) Queryx(query string, args ...interface{}) (*Rows, error) {
-	r, err := db.DB.Query(query, args...)
+	r, err := db.db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -356,7 +355,7 @@ func (db *DB) Queryx(query string, args ...interface{}) (*Rows, error) {
 // QueryRowx queries the database and returns an *sqlx.Row.
 // Any placeholder parameters are replaced with supplied args.
 func (db *DB) QueryRowx(query string, args ...interface{}) *Row {
-	rows, err := db.DB.Query(query, args...)
+	rows, err := db.db.Query(query, args...)
 	return &Row{rows: rows, err: err, unsafe: db.unsafe, Mapper: db.Mapper}
 }
 
@@ -639,9 +638,9 @@ func Connect(driverName, dataSourceName string) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = db.Ping()
+	err = db.db.Ping()
 	if err != nil {
-		db.Close()
+		db.db.Close()
 		return nil, err
 	}
 	return db, nil
@@ -884,9 +883,9 @@ func structOnlyError(t reflect.Type) error {
 // then each row must only have one column which can scan into that type.  This
 // allows you to do something like:
 //
-//    rows, _ := db.Query("select id from people;")
-//    var ids []int
-//    scanAll(rows, &ids, false)
+//	rows, _ := db.Query("select id from people;")
+//	var ids []int
+//	scanAll(rows, &ids, false)
 //
 // and ids will be a list of the id results.  I realize that this is a desirable
 // interface to expose to users, but for now it will only be exposed via changes

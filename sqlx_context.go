@@ -1,3 +1,4 @@
+//go:build go1.8
 // +build go1.8
 
 package sqlx
@@ -17,7 +18,7 @@ func ConnectContext(ctx context.Context, driverName, dataSourceName string) (*DB
 	if err != nil {
 		return db, err
 	}
-	err = db.PingContext(ctx)
+	err = db.db.PingContext(ctx)
 	return db, err
 }
 
@@ -158,7 +159,7 @@ func (db *DB) PreparexContext(ctx context.Context, query string) (*Stmt, error) 
 // QueryxContext queries the database and returns an *sqlx.Rows.
 // Any placeholder parameters are replaced with supplied args.
 func (db *DB) QueryxContext(ctx context.Context, query string, args ...interface{}) (*Rows, error) {
-	r, err := db.DB.QueryContext(ctx, query, args...)
+	r, err := db.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +169,7 @@ func (db *DB) QueryxContext(ctx context.Context, query string, args ...interface
 // QueryRowxContext queries the database and returns an *sqlx.Row.
 // Any placeholder parameters are replaced with supplied args.
 func (db *DB) QueryRowxContext(ctx context.Context, query string, args ...interface{}) *Row {
-	rows, err := db.DB.QueryContext(ctx, query, args...)
+	rows, err := db.db.QueryContext(ctx, query, args...)
 	return &Row{rows: rows, err: err, unsafe: db.unsafe, Mapper: db.Mapper}
 }
 
@@ -201,7 +202,7 @@ func (db *DB) MustExecContext(ctx context.Context, query string, args ...interfa
 // transaction. Tx.Commit will return an error if the context provided to
 // BeginxContext is canceled.
 func (db *DB) BeginTxx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) {
-	tx, err := db.DB.BeginTx(ctx, opts)
+	tx, err := db.db.BeginTx(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +211,7 @@ func (db *DB) BeginTxx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) {
 
 // Connx returns an *sqlx.Conn instead of an *sql.Conn.
 func (db *DB) Connx(ctx context.Context) (*Conn, error) {
-	conn, err := db.DB.Conn(ctx)
+	conn, err := db.db.Conn(ctx)
 	if err != nil {
 		return nil, err
 	}
