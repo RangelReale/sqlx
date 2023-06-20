@@ -81,8 +81,13 @@ func (s *sqlDBWrapper) BeginTx(ctx context.Context, opts *sql.TxOptions) (SQLTx,
 	return &sqlTxWrapper{tx: tx}, nil
 }
 
-func (s *sqlDBWrapper) Conn(ctx context.Context) (*sql.Conn, error) {
-	return s.db.Conn(ctx)
+func (s *sqlDBWrapper) Conn(ctx context.Context) (SQLConn, error) {
+	conn, err := s.db.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &sqlConnWrapper{conn: conn}, nil
 }
 
 func (s *sqlDBWrapper) Close() error {
@@ -182,6 +187,44 @@ func (s *sqlTxWrapper) Prepare(query string) (SQLStmt, error) {
 
 func (s *sqlTxWrapper) PrepareContext(ctx context.Context, query string) (SQLStmt, error) {
 	stmt, err := s.tx.PrepareContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	return &sqlStmtWrapper{stmt: stmt}, nil
+}
+
+type sqlConnWrapper struct {
+	conn *sql.Conn
+}
+
+func (s *sqlConnWrapper) Close() error {
+	return s.conn.Close()
+}
+
+func (s *sqlConnWrapper) BeginTx(ctx context.Context, opts *sql.TxOptions) (SQLTx, error) {
+	tx, err := s.conn.BeginTx(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return &sqlTxWrapper{tx: tx}, nil
+}
+
+func (s *sqlConnWrapper) QueryContext(ctx context.Context, query string, args ...interface{}) (SQLRows, error) {
+	return s.conn.QueryContext(ctx, query, args...)
+}
+
+func (s *sqlConnWrapper) QueryRowContext(ctx context.Context, query string, args ...interface{}) SQLRow {
+	return s.conn.QueryRowContext(ctx, query, args...)
+}
+
+func (s *sqlConnWrapper) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
+	return s.conn.ExecContext(ctx, query, args...)
+}
+
+func (s *sqlConnWrapper) PrepareContext(ctx context.Context, query string) (SQLStmt, error) {
+	stmt, err := s.conn.PrepareContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}

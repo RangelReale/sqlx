@@ -18,7 +18,7 @@ type SQLDB interface {
 	PingContext(ctx context.Context) error
 	Begin() (SQLTx, error)
 	BeginTx(ctx context.Context, opts *sql.TxOptions) (SQLTx, error)
-	Conn(ctx context.Context) (*sql.Conn, error)
+	Conn(ctx context.Context) (SQLConn, error)
 	Close() error
 }
 
@@ -56,5 +56,14 @@ type SQLTx interface {
 	Exec(query string, args ...interface{}) (sql.Result, error)
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	Prepare(query string) (SQLStmt, error)
+	PrepareContext(ctx context.Context, query string) (SQLStmt, error)
+}
+
+type SQLConn interface {
+	Close() error
+	BeginTx(ctx context.Context, opts *sql.TxOptions) (SQLTx, error)
+	QueryContext(ctx context.Context, query string, args ...interface{}) (SQLRows, error)
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) SQLRow
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	PrepareContext(ctx context.Context, query string) (SQLStmt, error)
 }
