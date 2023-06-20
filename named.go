@@ -418,6 +418,11 @@ func Named(query string, arg interface{}) (string, []interface{}, error) {
 	return bindNamedMapper(QUESTION, query, arg, mapper())
 }
 
+// NamedWithMapper is like Named but allows setting the mapper
+func NamedWithMapper(query string, arg interface{}, mapper *reflectx.Mapper) (string, []interface{}, error) {
+	return bindNamedMapper(QUESTION, query, arg, mapper)
+}
+
 func bindNamedMapper(bindType int, query string, arg interface{}, m *reflectx.Mapper) (string, []interface{}, error) {
 	t := reflect.TypeOf(arg)
 	k := t.Kind()
