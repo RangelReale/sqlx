@@ -24,7 +24,7 @@ type SQLDB interface {
 
 type SQLRow interface {
 	Err() error
-	Scan(dest ...any) error
+	Scan(dest ...interface{}) error
 }
 
 type SQLRows interface {

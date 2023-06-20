@@ -1,3 +1,4 @@
+//go:build go1.8
 // +build go1.8
 
 package sqlx
@@ -43,7 +44,7 @@ func (n *NamedStmt) ExecContext(ctx context.Context, arg interface{}) (sql.Resul
 
 // QueryContext executes a named statement using the struct argument, returning rows.
 // Any named placeholder parameters are replaced with fields from arg.
-func (n *NamedStmt) QueryContext(ctx context.Context, arg interface{}) (*sql.Rows, error) {
+func (n *NamedStmt) QueryContext(ctx context.Context, arg interface{}) (SQLRows, error) {
 	args, err := bindAnyArgs(n.Params, arg, n.Stmt.Mapper)
 	if err != nil {
 		return nil, err
@@ -80,7 +81,7 @@ func (n *NamedStmt) QueryxContext(ctx context.Context, arg interface{}) (*Rows, 
 	if err != nil {
 		return nil, err
 	}
-	return &Rows{Rows: r, Mapper: n.Stmt.Mapper, unsafe: isUnsafe(n)}, err
+	return &Rows{SQLRows: r, Mapper: n.Stmt.Mapper, unsafe: isUnsafe(n)}, err
 }
 
 // QueryRowxContext this NamedStmt.  Because of limitations with QueryRow, this is
