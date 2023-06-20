@@ -6,18 +6,53 @@ import (
 )
 
 type SQLDB interface {
-	Query(query string, args ...interface{}) (*sql.Rows, error)
-	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
-	QueryRow(query string, args ...interface{}) *sql.Row
-	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+	Query(query string, args ...interface{}) (SQLRows, error)
+	QueryContext(ctx context.Context, query string, args ...interface{}) (SQLRows, error)
+	QueryRow(query string, args ...interface{}) SQLRow
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) SQLRow
 	Exec(query string, args ...interface{}) (sql.Result, error)
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-	Prepare(query string) (*sql.Stmt, error)
-	PrepareContext(ctx context.Context, query string) (*sql.Stmt, error)
-	Ping() error
+	Prepare(query string) (SQLStmt, error)
+	PrepareContext(ctx context.Context, query string) (SQLStmt, error)
 	PingContext(ctx context.Context) error
-	Begin() (*sql.Tx, error)
-	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
-	Conn(ctx context.Context) (*sql.Conn, error)
+	Begin() (SQLTx, error)
+	BeginTx(ctx context.Context, opts *sql.TxOptions) (SQLTx, error)
 	Close() error
+}
+
+type SQLRow interface {
+	Err() error
+	Scan(dest ...any) error
+}
+
+type SQLRows interface {
+	SQLRow
+	ColumnTypes() ([]*sql.ColumnType, error)
+	Columns() ([]string, error)
+	Close() error
+	Next() bool
+}
+
+type SQLStmt interface {
+	Close() error
+	Query(args ...interface{}) (SQLRows, error)
+	QueryContext(ctx context.Context, args ...interface{}) (SQLRows, error)
+	QueryRowContext(ctx context.Context, args ...interface{}) SQLRow
+	Exec(args ...interface{}) (sql.Result, error)
+	ExecContext(ctx context.Context, args ...interface{}) (sql.Result, error)
+}
+
+type SQLTx interface {
+	Commit() error
+	Rollback() error
+	Stmt(stmt SQLStmt) SQLStmt
+	StmtContext(ctx context.Context, stmt SQLStmt) SQLStmt
+	Query(query string, args ...interface{}) (SQLRows, error)
+	QueryContext(ctx context.Context, query string, args ...interface{}) (SQLRows, error)
+	QueryRow(query string, args ...interface{}) SQLRow
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) SQLRow
+	Exec(query string, args ...interface{}) (sql.Result, error)
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+	Prepare(query string) (SQLStmt, error)
+	PrepareContext(ctx context.Context, query string) (SQLStmt, error)
 }

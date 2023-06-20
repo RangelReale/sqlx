@@ -166,7 +166,7 @@ var _valuerInterface = reflect.TypeOf((*driver.Valuer)(nil)).Elem()
 type Row struct {
 	err    error
 	unsafe bool
-	rows   *sql.Rows
+	rows   SQLRows
 	Mapper *reflectx.Mapper
 }
 
@@ -262,7 +262,7 @@ func Open(driverName, dataSourceName string) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &DB{db: db, driverName: driverName, Mapper: mapper()}, err
+	return &DB{db: WrapSQLDB(db), driverName: driverName, Mapper: mapper()}, err
 }
 
 // MustOpen is the same as sql.Open, but returns an *sqlx.DB instead and panics on error.
@@ -339,7 +339,7 @@ func (db *DB) Beginx() (*Tx, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Tx{Tx: tx, driverName: db.driverName, unsafe: db.unsafe, Mapper: db.Mapper}, err
+	return &Tx{tx: tx, driverName: db.driverName, unsafe: db.unsafe, Mapper: db.Mapper}, err
 }
 
 // Queryx queries the database and returns an *sqlx.Rows.
@@ -349,7 +349,7 @@ func (db *DB) Queryx(query string, args ...interface{}) (*Rows, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Rows{Rows: r, unsafe: db.unsafe, Mapper: db.Mapper}, err
+	return &Rows{rows: r, unsafe: db.unsafe, Mapper: db.Mapper}, err
 }
 
 // QueryRowx queries the database and returns an *sqlx.Row.
@@ -385,7 +385,7 @@ type Conn struct {
 
 // Tx is an sqlx wrapper around sql.Tx with extra functionality
 type Tx struct {
-	*sql.Tx
+	tx         SQLTx
 	driverName string
 	unsafe     bool
 	Mapper     *reflectx.Mapper
@@ -404,7 +404,7 @@ func (tx *Tx) Rebind(query string) string {
 // Unsafe returns a version of Tx which will silently succeed to scan when
 // columns in the SQL result have no fields in the destination struct.
 func (tx *Tx) Unsafe() *Tx {
-	return &Tx{Tx: tx.Tx, driverName: tx.driverName, unsafe: true, Mapper: tx.Mapper}
+	return &Tx{tx: tx.tx, driverName: tx.driverName, unsafe: true, Mapper: tx.Mapper}
 }
 
 // BindNamed binds a query within a transaction's bindvar type.
@@ -571,7 +571,7 @@ func (q *qStmt) Exec(query string, args ...interface{}) (sql.Result, error) {
 // Rows is a wrapper around sql.Rows which caches costly reflect operations
 // during a looped StructScan
 type Rows struct {
-	*sql.Rows
+	rows   SQLRows
 	unsafe bool
 	Mapper *reflectx.Mapper
 	// these fields cache memory use for a rows during iteration w/ structScan
