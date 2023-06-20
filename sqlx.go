@@ -75,7 +75,7 @@ type ColScanner interface {
 
 // Queryer is an interface used by Get and Select
 type Queryer interface {
-	Query(query string, args ...interface{}) (*sql.Rows, error)
+	Query(query string, args ...interface{}) (SQLRows, error)
 	Queryx(query string, args ...interface{}) (*Rows, error)
 	QueryRowx(query string, args ...interface{}) *Row
 }
@@ -102,7 +102,7 @@ type Ext interface {
 
 // Preparer is an interface used by Preparex.
 type Preparer interface {
-	Prepare(query string) (*sql.Stmt, error)
+	Prepare(query string) (SQLStmt, error)
 }
 
 // determine if any of our extensions are unsafe
@@ -239,7 +239,7 @@ func (r *Row) Err() error {
 // DB is a wrapper around sql.DB which keeps track of the driverName upon Open,
 // used mostly to automatically bind named queries using the right bindvars.
 type DB struct {
-	db         SQLDB
+	SQLDB
 	driverName string
 	unsafe     bool
 	Mapper     *reflectx.Mapper
@@ -248,7 +248,7 @@ type DB struct {
 // NewDb returns a new sqlx DB wrapper for a pre-existing *sql.DB.  The
 // driverName of the original database is required for named query support.
 func NewDb(db SQLDB, driverName string) *DB {
-	return &DB{db: db, driverName: driverName, Mapper: mapper()}
+	return &DB{SQLDB: db, driverName: driverName, Mapper: mapper()}
 }
 
 // DriverName returns the driverName passed to the Open function for this DB.
@@ -262,7 +262,7 @@ func Open(driverName, dataSourceName string) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &DB{db: WrapSQLDB(db), driverName: driverName, Mapper: mapper()}, err
+	return &DB{SQLDB: WrapSQLDB(db), driverName: driverName, Mapper: mapper()}, err
 }
 
 // MustOpen is the same as sql.Open, but returns an *sqlx.DB instead and panics on error.
@@ -290,7 +290,7 @@ func (db *DB) Rebind(query string) string {
 // sqlx.Stmt and sqlx.Tx which are created from this DB will inherit its
 // safety behavior.
 func (db *DB) Unsafe() *DB {
-	return &DB{db: db.db, driverName: db.driverName, unsafe: true, Mapper: db.Mapper}
+	return &DB{SQLDB: db.SQLDB, driverName: db.driverName, unsafe: true, Mapper: db.Mapper}
 }
 
 // BindNamed binds a query using the DB driver's bindvar type.
@@ -335,27 +335,27 @@ func (db *DB) MustBegin() *Tx {
 
 // Beginx begins a transaction and returns an *sqlx.Tx instead of an *sql.Tx.
 func (db *DB) Beginx() (*Tx, error) {
-	tx, err := db.db.Begin()
+	tx, err := db.SQLDB.Begin()
 	if err != nil {
 		return nil, err
 	}
-	return &Tx{tx: tx, driverName: db.driverName, unsafe: db.unsafe, Mapper: db.Mapper}, err
+	return &Tx{SQLTx: tx, driverName: db.driverName, unsafe: db.unsafe, Mapper: db.Mapper}, err
 }
 
 // Queryx queries the database and returns an *sqlx.Rows.
 // Any placeholder parameters are replaced with supplied args.
 func (db *DB) Queryx(query string, args ...interface{}) (*Rows, error) {
-	r, err := db.db.Query(query, args...)
+	r, err := db.SQLDB.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
-	return &Rows{rows: r, unsafe: db.unsafe, Mapper: db.Mapper}, err
+	return &Rows{SQLRows: r, unsafe: db.unsafe, Mapper: db.Mapper}, err
 }
 
 // QueryRowx queries the database and returns an *sqlx.Row.
 // Any placeholder parameters are replaced with supplied args.
 func (db *DB) QueryRowx(query string, args ...interface{}) *Row {
-	rows, err := db.db.Query(query, args...)
+	rows, err := db.SQLDB.Query(query, args...)
 	return &Row{rows: rows, err: err, unsafe: db.unsafe, Mapper: db.Mapper}
 }
 
@@ -385,7 +385,7 @@ type Conn struct {
 
 // Tx is an sqlx wrapper around sql.Tx with extra functionality
 type Tx struct {
-	tx         SQLTx
+	SQLTx
 	driverName string
 	unsafe     bool
 	Mapper     *reflectx.Mapper
@@ -404,7 +404,7 @@ func (tx *Tx) Rebind(query string) string {
 // Unsafe returns a version of Tx which will silently succeed to scan when
 // columns in the SQL result have no fields in the destination struct.
 func (tx *Tx) Unsafe() *Tx {
-	return &Tx{tx: tx.tx, driverName: tx.driverName, unsafe: true, Mapper: tx.Mapper}
+	return &Tx{SQLTx: tx.SQLTx, driverName: tx.driverName, unsafe: true, Mapper: tx.Mapper}
 }
 
 // BindNamed binds a query within a transaction's bindvar type.
@@ -433,17 +433,17 @@ func (tx *Tx) Select(dest interface{}, query string, args ...interface{}) error 
 // Queryx within a transaction.
 // Any placeholder parameters are replaced with supplied args.
 func (tx *Tx) Queryx(query string, args ...interface{}) (*Rows, error) {
-	r, err := tx.Tx.Query(query, args...)
+	r, err := tx.SQLTx.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
-	return &Rows{Rows: r, unsafe: tx.unsafe, Mapper: tx.Mapper}, err
+	return &Rows{SQLRows: r, unsafe: tx.unsafe, Mapper: tx.Mapper}, err
 }
 
 // QueryRowx within a transaction.
 // Any placeholder parameters are replaced with supplied args.
 func (tx *Tx) QueryRowx(query string, args ...interface{}) *Row {
-	rows, err := tx.Tx.Query(query, args...)
+	rows, err := tx.SQLTx.Query(query, args...)
 	return &Row{rows: rows, err: err, unsafe: tx.unsafe, Mapper: tx.Mapper}
 }
 
@@ -468,18 +468,20 @@ func (tx *Tx) Preparex(query string) (*Stmt, error) {
 // Stmtx returns a version of the prepared statement which runs within a transaction.  Provided
 // stmt can be either *sql.Stmt or *sqlx.Stmt.
 func (tx *Tx) Stmtx(stmt interface{}) *Stmt {
-	var s *sql.Stmt
+	var s SQLStmt
 	switch v := stmt.(type) {
-	case Stmt:
-		s = v.Stmt
-	case *Stmt:
-		s = v.Stmt
-	case *sql.Stmt:
+	case SQLStmt:
 		s = v
+	case Stmt:
+		s = v.SQLStmt
+	case *Stmt:
+		s = v.SQLStmt
+	case *sql.Stmt:
+		s = &sqlStmtWrapper{stmt: v}
 	default:
 		panic(fmt.Sprintf("non-statement type %v passed to Stmtx", reflect.ValueOf(stmt).Type()))
 	}
-	return &Stmt{Stmt: tx.Stmt(s), Mapper: tx.Mapper}
+	return &Stmt{SQLStmt: tx.Stmt(s), Mapper: tx.Mapper}
 }
 
 // NamedStmt returns a version of the prepared statement which runs within a transaction.
@@ -498,7 +500,7 @@ func (tx *Tx) PrepareNamed(query string) (*NamedStmt, error) {
 
 // Stmt is an sqlx wrapper around sql.Stmt with extra functionality
 type Stmt struct {
-	*sql.Stmt
+	SQLStmt
 	unsafe bool
 	Mapper *reflectx.Mapper
 }
@@ -506,7 +508,7 @@ type Stmt struct {
 // Unsafe returns a version of Stmt which will silently succeed to scan when
 // columns in the SQL result have no fields in the destination struct.
 func (s *Stmt) Unsafe() *Stmt {
-	return &Stmt{Stmt: s.Stmt, unsafe: true, Mapper: s.Mapper}
+	return &Stmt{SQLStmt: s.SQLStmt, unsafe: true, Mapper: s.Mapper}
 }
 
 // Select using the prepared statement.
@@ -547,7 +549,7 @@ func (s *Stmt) Queryx(args ...interface{}) (*Rows, error) {
 // implementing those interfaces and ignoring the `query` argument.
 type qStmt struct{ *Stmt }
 
-func (q *qStmt) Query(query string, args ...interface{}) (*sql.Rows, error) {
+func (q *qStmt) Query(query string, args ...interface{}) (SQLRows, error) {
 	return q.Stmt.Query(args...)
 }
 
@@ -556,7 +558,7 @@ func (q *qStmt) Queryx(query string, args ...interface{}) (*Rows, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Rows{Rows: r, unsafe: q.Stmt.unsafe, Mapper: q.Stmt.Mapper}, err
+	return &Rows{SQLRows: r, unsafe: q.Stmt.unsafe, Mapper: q.Stmt.Mapper}, err
 }
 
 func (q *qStmt) QueryRowx(query string, args ...interface{}) *Row {
@@ -571,7 +573,7 @@ func (q *qStmt) Exec(query string, args ...interface{}) (sql.Result, error) {
 // Rows is a wrapper around sql.Rows which caches costly reflect operations
 // during a looped StructScan
 type Rows struct {
-	rows   SQLRows
+	SQLRows
 	unsafe bool
 	Mapper *reflectx.Mapper
 	// these fields cache memory use for a rows during iteration w/ structScan
@@ -638,9 +640,9 @@ func Connect(driverName, dataSourceName string) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = db.db.Ping()
+	err = db.SQLDB.Ping()
 	if err != nil {
-		db.db.Close()
+		db.SQLDB.Close()
 		return nil, err
 	}
 	return db, nil
@@ -661,7 +663,7 @@ func Preparex(p Preparer, query string) (*Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Stmt{Stmt: s, unsafe: isUnsafe(p), Mapper: mapperFor(p)}, err
+	return &Stmt{SQLStmt: s, unsafe: isUnsafe(p), Mapper: mapperFor(p)}, err
 }
 
 // Select executes a query using the provided Queryer, and StructScans each row

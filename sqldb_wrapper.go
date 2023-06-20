@@ -55,6 +55,10 @@ func (s *sqlDBWrapper) PrepareContext(ctx context.Context, query string) (SQLStm
 	return &sqlStmtWrapper{stmt: stmt}, nil
 }
 
+func (s *sqlDBWrapper) Ping() error {
+	return s.db.Ping()
+}
+
 func (s *sqlDBWrapper) PingContext(ctx context.Context) error {
 	return s.db.PingContext(ctx)
 }
@@ -75,6 +79,10 @@ func (s *sqlDBWrapper) BeginTx(ctx context.Context, opts *sql.TxOptions) (SQLTx,
 	}
 
 	return &sqlTxWrapper{tx: tx}, nil
+}
+
+func (s *sqlDBWrapper) Conn(ctx context.Context) (*sql.Conn, error) {
+	return s.db.Conn(ctx)
 }
 
 func (s *sqlDBWrapper) Close() error {

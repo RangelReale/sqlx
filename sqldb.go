@@ -14,9 +14,11 @@ type SQLDB interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	Prepare(query string) (SQLStmt, error)
 	PrepareContext(ctx context.Context, query string) (SQLStmt, error)
+	Ping() error
 	PingContext(ctx context.Context) error
 	Begin() (SQLTx, error)
 	BeginTx(ctx context.Context, opts *sql.TxOptions) (SQLTx, error)
+	Conn(ctx context.Context) (*sql.Conn, error)
 	Close() error
 }
 
