@@ -18,7 +18,7 @@ func ConnectContext(ctx context.Context, driverName, dataSourceName string) (*DB
 	if err != nil {
 		return db, err
 	}
-	err = db.SQLDB.PingContext(ctx)
+	err = db.PingContext(ctx)
 	return db, err
 }
 

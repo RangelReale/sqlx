@@ -646,9 +646,9 @@ func Connect(driverName, dataSourceName string) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = db.SQLDB.Ping()
+	err = db.Ping()
 	if err != nil {
-		db.SQLDB.Close()
+		db.Close()
 		return nil, err
 	}
 	return db, nil
