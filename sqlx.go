@@ -247,7 +247,13 @@ type DB struct {
 
 // NewDb returns a new sqlx DB wrapper for a pre-existing *sql.DB.  The
 // driverName of the original database is required for named query support.
-func NewDb(db SQLDB, driverName string) *DB {
+func NewDb(db *sql.DB, driverName string) *DB {
+	return &DB{SQLDB: WrapSQLDB(db), driverName: driverName, Mapper: mapper()}
+}
+
+// NewSQLDb returns a new sqlx DB wrapper for a pre-existing SQLDB.  The
+// driverName of the original database is required for named query support.
+func NewSQLDb(db SQLDB, driverName string) *DB {
 	return &DB{SQLDB: db, driverName: driverName, Mapper: mapper()}
 }
 
